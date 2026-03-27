@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Cartoonify Lite (No AI) - convert photos to cartoon art using Canvas API." />
+    <title>Cartoonify Lite (No AI)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
+      :root {
+        font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+        background-color: #05060a;
+      }
+
+      body {
+        font-family: inherit;
+      }
+
+      .track-overlay {
+        background: radial-gradient(circle at top, rgba(255, 255, 255, 0.4), transparent 60%);
+      }
+
+      #comparisonHandle {
+        width: 24px;
+        height: 24px;
+        border-radius: 9999px;
+        border: 3px solid rgba(255, 255, 255, 0.9);
+        background: linear-gradient(135deg, #f472b6, #c084fc);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.45);
+        transform: translateX(-50%);
+      }
+
+      .drop-area.dragging {
+        border-color: #f472b6;
+        background: rgba(244, 114, 182, 0.08);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="relative isolate px-6 py-12 sm:px-10">
+      <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(147,197,253,0.25),_transparent_35%),_radial-gradient(circle_at_bottom,_rgba(236,72,153,0.25),_transparent_45%)]" aria-hidden="true"></div>
+      <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-sm uppercase tracking-[0.4em] text-pink-300">Canvas Playground</p>
+          <h1 class="text-4xl font-semibold text-white sm:text-5xl">Cartoonify Lite (No AI)</h1>
+          <p class="max-w-2xl text-slate-300">Upload a photo, tweak the style, and download a playful cartoon version created entirely with HTML5 Canvas.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="darkToggle" class="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-pink-400 hover:text-pink-300">Toggle Mode</button>
+          <span id="styleStatus" class="text-sm text-slate-300">Style: Cartoon</span>
+        </div>
+      </header>
+
+      <main class="mt-10 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <section class="space-y-6">
+          <div id="dropArea" class="drop-area flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-slate-700 px-6 py-14 text-center transition">
+            <p class="text-lg font-semibold text-white">Drag &amp; drop an image</p>
+            <p class="text-sm text-slate-400">JPG or PNG only · up to 10MB</p>
+            <label for="fileInput" class="cursor-pointer rounded-full border border-slate-500/70 bg-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:border-pink-400 hover:text-pink-300">Browse files</label>
+            <input id="fileInput" type="file" accept="image/png, image/jpeg" class="sr-only" />
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button class="style-btn rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-pink-400 hover:text-pink-200" data-style="Sketch">Sketch</button>
+            <button class="style-btn rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-pink-400 hover:text-pink-200" data-style="Cartoon">Cartoon</button>
+            <button class="style-btn rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-pink-400 hover:text-pink-200" data-style="Ink">Ink</button>
+          </div>
+          <div class="space-y-2 rounded-2xl border border-white/5 bg-white/5 p-4">
+            <div class="flex items-center justify-between text-sm text-slate-300">
+              <span>Intensity</span>
+              <span id="intensityValue">100</span>
+            </div>
+            <input id="intensitySlider" type="range" min="40" max="200" value="100" class="w-full accent-pink-400" />
+          </div>
+          <div id="loader" class="hidden items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+            <div class="h-6 w-6 animate-spin rounded-full border-4 border-pink-400 border-t-transparent"></div>
+            <span>Processing cartoon layers...</span>
+          </div>
+          <div class="flex flex-col gap-2 text-xs text-slate-400">
+            <p>Before/after comparison</p>
+            <input id="comparisonSlider" type="range" min="0" max="100" value="55" class="accent-pink-400" aria-label="Before and after comparison" />
+          </div>
+          <div class="flex gap-3 text-sm">
+            <button id="downloadBtn" class="flex-1 rounded-2xl bg-gradient-to-r from-pink-500 via-pink-600 to-purple-500 px-4 py-3 font-semibold text-white transition hover:scale-[1.01]" disabled>Download Cartoon</button>
+          </div>
+        </section>
+
+        <section class="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.65)]">
+          <div class="before-after relative overflow-hidden rounded-3xl bg-slate-900/40">
+            <canvas id="originalCanvas" class="w-full"></canvas>
+            <div id="processedOverlay" class="absolute inset-0 w-1/2 overflow-hidden">
+              <canvas id="processedCanvas" class="w-full"></canvas>
+              <div id="comparisonHandle" class="absolute left-1/2 top-1/2 -translate-y-1/2"></div>
+            </div>
+          </div>
+          <p class="mt-4 text-sm text-slate-400">Slide to compare the original upload with the Cartoonified version.</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
